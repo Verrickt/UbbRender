@@ -1,6 +1,32 @@
 ﻿using System.Collections.Generic;
 
-namespace CC98.Controls.UbbRenderer.Common;
+namespace UbbRender.Common;
+
+public enum TokenType
+{
+    Text,
+    OpenTag,      // [tag]
+    CloseTag,     // [/tag]
+    SelfCloseTag, // [tag/]
+    NewLine       // \n or \r or \r\n
+}
+
+
+public class Token
+{
+    public TokenType Type { get; set; }
+    public string Value { get; set; }
+    public int Position { get; set; }
+    public int Length => Value?.Length ?? 0;
+
+    public Token(TokenType type, string value, int position)
+    {
+        Type = type;
+        Value = value;
+        Position = position;
+    }
+}
+
 // 节点类型枚举
 public enum UbbNodeType
 {

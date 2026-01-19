@@ -1,4 +1,4 @@
-﻿using CC98.Controls.UbbRenderer.Common;
+﻿using UbbRender.Common;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Collections.Generic;

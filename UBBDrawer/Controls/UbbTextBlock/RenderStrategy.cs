@@ -1,5 +1,4 @@
-﻿using CC98.Controls.UbbRender;
-using ColorCode;
+﻿using ColorCode;
 using CommunityToolkit.WinUI.UI.Controls.Markdown.Render;
 using Microsoft.UI;
 using Microsoft.UI.Text;
@@ -20,7 +19,7 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.UI;
 using Windows.UI.Text;
 using static System.Net.WebRequestMethods;
-namespace CC98.Controls.UbbRenderer.Common;
+namespace UbbRender.Common;
 
 // 渲染策略接口
 public interface IRenderStrategy
@@ -790,12 +789,186 @@ public class LineBreakRenderStrategy : IRenderStrategy
 {
     public void Render(UbbNode node, RenderContext context)
     {
-        // 使用空的Run而不是LineBreak
-        // 这样不会创建新的行，只是添加一个换行符
-        var run = new LineBreak();
-        context.AddInline(run);
+        var breakContext = AnalyzeContext(node);
+        
+        // 决策树：根据上下文决定如何处理
+        if (ShouldIgnoreLineBreak(breakContext))
+        {
+            // 完全忽略，不渲染任何内容
+            return;
+        }
+        else if (ShouldCreateParagraphBreak(breakContext))
+        {
+            // 创建段落分隔（结束当前文本块）
+            context.FinalizeCurrentTextBlock();
+        }
+        else if (ShouldCreateSoftLineBreak(breakContext))
+        {
+            // 创建软换行（在当前文本块内）
+            CreateSoftLineBreak(context);
+        }
+        else
+        {
+            // 默认：创建标准换行
+            CreateStandardLineBreak(context);
+        }
+    }
+    private class LineBreakContext
+    {
+        public bool IsInsideQuote { get; set; }
+        public bool IsInsideParagraph { get; set; }
+        public bool IsInsideBlockContainer { get; set; }
+        public bool IsDocumentRoot { get; set; }
+        public bool IsFirstInParent { get; set; }
+        public bool IsLastInParent { get; set; }
+        public bool AfterBlockClose { get; set; } // 是否在块级标签关闭后
+        public int ConsecutiveLineBreaks { get; set; } // 连续换行符数量
+    }
+
+    private LineBreakContext AnalyzeContext(UbbNode node)
+    {
+        var context = new LineBreakContext();
+
+        // 分析节点位置
+        var current = node;
+        while (current.Parent != null)
+        {
+            if (current.Parent.Type == UbbNodeType.Quote)
+                context.IsInsideQuote = true;
+            if (current.Parent.Type == UbbNodeType.Paragraph)
+                context.IsInsideParagraph = true;
+            if (IsBlockContainer(current.Parent.Type))
+                context.IsInsideBlockContainer = true;
+            if (current.Parent.Type == UbbNodeType.Document)
+                context.IsDocumentRoot = true;
+
+            current = current.Parent;
+        }
+
+        // 分析兄弟节点关系
+        if (node.Parent != null)
+        {
+            var siblings = node.Parent.Children;
+            var index = siblings.IndexOf(node);
+
+            context.IsFirstInParent = index == 0;
+            context.IsLastInParent = index == siblings.Count - 1;
+
+            // 检查是否在块级标签关闭后
+            if (index > 0)
+            {
+                var prevSibling = siblings[index - 1];
+                context.AfterBlockClose = IsBlockClosingTag(prevSibling);
+            }
+        }
+
+        // 计算连续换行符数量
+        context.ConsecutiveLineBreaks = CountConsecutiveLineBreaks(node);
+
+        return context;
+    }
+    private bool ShouldIgnoreLineBreak(LineBreakContext context)
+    {
+        // 规则1：在文档根节点下，且是第一个或最后一个换行
+        if (context.IsDocumentRoot && (context.IsFirstInParent || context.IsLastInParent))
+            return true;
+            
+        // 规则2：紧跟在块级标签关闭后的第一个换行
+        if (context.AfterBlockClose && context.IsFirstInParent)
+            return true;
+            
+        // 规则3：在引用块内，但前面已经有换行了
+        if (context.IsInsideQuote && context.ConsecutiveLineBreaks > 1)
+            return true; // 忽略多余的换行
+            
+        return false;
+    }
+    
+    private bool ShouldCreateParagraphBreak(LineBreakContext context)
+    {
+        // 规则1：在文档根节点下，有两个以上连续换行
+        if (context.IsDocumentRoot && context.ConsecutiveLineBreaks >= 2)
+            return true;
+            
+        // 规则2：不在任何容器内，且是显著的分隔
+        if (!context.IsInsideQuote && !context.IsInsideParagraph && 
+            !context.IsInsideBlockContainer)
+            return true;
+            
+        return false;
+    }
+    
+    private bool ShouldCreateSoftLineBreak(LineBreakContext context)
+    {
+        // 规则1：在段落内
+        if (context.IsInsideParagraph)
+            return true;
+            
+        // 规则2：在引用块或代码块内
+        if (context.IsInsideQuote || context.IsInsideBlockContainer)
+            return true;
+            
+        return false;
+    }
+    
+    private void CreateSoftLineBreak(RenderContext context)
+    {
+        // 在当前文本块内添加换行
+        context.AddInline(new LineBreak());
+    }
+    
+    private void CreateStandardLineBreak(RenderContext context)
+    {
+        // 结束当前文本块，开始新的文本块
+        context.FinalizeCurrentTextBlock();
+    }
+    
+    private int CountConsecutiveLineBreaks(UbbNode node)
+    {
+        if (node.Parent == null)
+            return 1;
+            
+        var siblings = node.Parent.Children;
+        var index = siblings.IndexOf(node);
+        int count = 1;
+        
+        // 向前查找连续的换行节点
+        for (int i = index - 1; i >= 0; i--)
+        {
+            if (siblings[i].Type == UbbNodeType.LineBreak)
+                count++;
+            else
+                break;
+        }
+        
+        // 向后查找连续的换行节点
+        for (int i = index + 1; i < siblings.Count; i++)
+        {
+            if (siblings[i].Type == UbbNodeType.LineBreak)
+                count++;
+            else
+                break;
+        }
+        
+        return count;
+    }
+    
+    private bool IsBlockContainer(UbbNodeType type)
+    {
+        return type == UbbNodeType.Quote || 
+               type == UbbNodeType.Code || 
+               type == UbbNodeType.List;
+    }
+    
+    private bool IsBlockClosingTag(UbbNode node)
+    {
+        // 检查节点是否表示块级元素的结束
+        // 这需要根据你的AST结构来判断
+        return node.Type == UbbNodeType.Quote || 
+               node.Type == UbbNodeType.Code;
     }
 }
+
 
 // 对齐渲染策略
 public class AlignRenderStrategy : IRenderStrategy

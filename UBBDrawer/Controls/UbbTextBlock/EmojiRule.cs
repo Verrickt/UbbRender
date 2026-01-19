@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace CC98.Controls.UbbRender;
+namespace UbbRender.Common;
 // 表情规则配置
 public class EmoticonRule
 {

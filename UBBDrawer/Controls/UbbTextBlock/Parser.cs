@@ -1,156 +1,14 @@
-﻿using CC98.Controls.UbbRender;
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Documents;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace CC98.Controls.UbbRenderer.Common;
-public enum TokenType
-{
-    Text,
-    OpenTag,      // [tag]
-    CloseTag,     // [/tag]
-    SelfCloseTag, // [tag/]
-    NewLine
-}
+namespace UbbRender.Common;
 
-public class Token
-{
-    public TokenType Type { get; set; }
-    public string Value { get; set; }
-    public int Position { get; set; }
-    public int Length => Value?.Length ?? 0;
 
-    public Token(TokenType type, string value, int position)
-    {
-        Type = type;
-        Value = value;
-        Position = position;
-    }
-}
 
-public class Tokenizer
-{
-    private readonly string _input;
-    private int _position;
-    private readonly List<Token> _tokens = new();
 
-    public Tokenizer(string input)
-    {
-        _input = input ?? string.Empty;
-    }
-
-    public List<Token> Tokenize()
-    {
-        _position = 0;
-        _tokens.Clear();
-
-        while (_position < _input.Length)
-        {
-            var currentChar = _input[_position];
-
-            if (currentChar == '[')
-            {
-                ProcessTag();
-            }
-            else if (currentChar == '\n')
-            {
-                _tokens.Add(new Token(TokenType.NewLine, "\n", _position));
-                _position++;
-            }
-            else
-            {
-                ProcessText();
-            }
-        }
-
-        return _tokens;
-    }
-
-    private void ProcessText()
-    {
-        var start = _position;
-
-        while (_position < _input.Length)
-        {
-            var currentChar = _input[_position];
-
-            if (currentChar == '[' || currentChar == '\n' )
-                break;
-
-            _position++;
-        }
-
-        if (_position > start)
-        {
-            var text = _input.Substring(start, _position - start);
-            _tokens.Add(new Token(TokenType.Text, text, start));
-        }
-    }
-
-    private void ProcessTag()
-    {
-        var start = _position;
-        _position++; // 跳过 '['
-
-        // 检查是否为闭合标签
-        bool isCloseTag = false;
-        if (_position < _input.Length && _input[_position] == '/')
-        {
-            isCloseTag = true;
-            _position++;
-        }
-
-        // 查找标签结束位置
-        while (_position < _input.Length)
-        {
-            var currentChar = _input[_position];
-
-            if (currentChar == ']')
-            {
-                var tagContent = _input.Substring(start + 1, _position - start - 1);
-
-                // 检查是否为自闭合标签
-                bool isSelfClose = tagContent.EndsWith("/");
-                if (isSelfClose)
-                {
-                    tagContent = tagContent.Substring(0, tagContent.Length - 1);
-                }
-
-                _position++; // 跳过 ']'
-
-                if (!isCloseTag && !isSelfClose && IsEmoticonTag(tagContent))
-                {
-                    // 表情标签作为自闭合标签处理
-                    _tokens.Add(new Token(TokenType.SelfCloseTag, tagContent, start));
-                }
-                else
-                {
-                    var tokenType = isCloseTag ? TokenType.CloseTag :
-                                   isSelfClose ? TokenType.SelfCloseTag : TokenType.OpenTag;
-                    _tokens.Add(new Token(tokenType, tagContent.Trim('/'), start));
-                }             
-                return;
-            }
-
-            _position++;
-        }
-
-        // 如果没有找到 ']'，则将其视为普通文本
-        _position = start;
-        ProcessText();
-    }
-    // 检查是否是表情标签
-    private bool IsEmoticonTag(string tagContent)
-    {
-        // 检查是否包含空格（有属性就不是表情标签）
-        if (tagContent.Contains(' '))
-            return false;
-
-        return EmoticonRules.IsEmoticonTag(tagContent);
-    }
-}
 
 
 public class Parser
@@ -386,59 +244,116 @@ public class Parser
         _nodeStack.Peek().AddChild(node);
         _document.AllNodes.Add(node);
     }
-    
+
     private void ProcessNewLineToken(Token token)
     {
-        // 添加换行节点
-        var lineBreak = TagNode.Create(UbbNodeType.LineBreak);
-        _nodeStack.Peek().AddChild(lineBreak);
-        _document.AllNodes.Add(lineBreak);
-
-        // 检查是否需要创建新段落
-        if (ShouldCreateNewParagraph())
+        // 检查是否需要过滤这个换行符
+        if (ShouldFilterNewLineInParser())
         {
-            var paragraph = TagNode.Create(UbbNodeType.Paragraph);
-            _nodeStack.Peek().AddChild(paragraph);
-            _document.AllNodes.Add(paragraph);
-
-            // 找到最上层的非段落节点
-            var stackCopy = new Stack<TagNode>(_nodeStack);
-            while (stackCopy.Count > 0 && stackCopy.Peek().Type == UbbNodeType.Paragraph)
-            {
-                stackCopy.Pop();
-            }
-
-            if (stackCopy.Count > 0)
-            {
-                var parent = stackCopy.Peek();
-                while (_nodeStack.Peek() != parent)
-                {
-                    _nodeStack.Pop();
-                }
-
-                parent.AddChild(paragraph);
-                _nodeStack.Push(paragraph);
-            }
+            // 过滤掉：不创建 LineBreak 节点
+            return;
         }
+
+        // 创建 LineBreak 节点
+        var lineBreak = TagNode.Create(UbbNodeType.LineBreak);
+
+        // 添加到当前节点
+        if (_nodeStack.Count > 0)
+        {
+            _nodeStack.Peek().AddChild(lineBreak);
+        }
+        else
+        {
+            _document.Root.AddChild(lineBreak);
+        }
+        _document.AllNodes.Add(lineBreak);
     }
 
-    private bool ShouldCreateNewParagraph()
+    private bool ShouldFilterNewLineInParser()
     {
-        
-        // 如果当前在段落内，并且有两个连续换行，则创建新段落
-        if (_nodeStack.Peek().Type == UbbNodeType.Paragraph)
+        // 规则1：如果栈为空（文档根节点），不过滤
+        if (_nodeStack.Count == 0)
+            return false;
+
+        var currentNode = _nodeStack.Peek();
+
+        // 规则2：在块级容器内（如引用、代码块）
+        if (IsBlockContainer(currentNode))
         {
-            var children = _nodeStack.Peek().Children;
-            if (children.Count >= 2)
-            {
-                var last = children[^1];
-                var secondLast = children[^2];
-                return last.Type == UbbNodeType.LineBreak &&
-                       secondLast.Type == UbbNodeType.LineBreak;
-            }
+            // 检查这个换行符是否在"边界位置"
+            return IsBoundaryNewLineInContainer(currentNode);
         }
+
         return false;
     }
+
+    private bool IsBoundaryNewLineInContainer(TagNode container)
+    {
+        var children = container.Children;
+
+        // 情况A：换行符是容器的第一个子节点
+        if (children.Count == 0)
+        {
+            // 即将添加的第一个子节点是换行符 → 过滤
+            return true;
+        }
+
+        // 情况B：换行符紧跟在块级标签之后
+        var lastChild = children[^1];
+        if (IsBlockTag(lastChild))
+        {
+            // 例如：[quote] 或 [/quote] 后的换行符
+            return true;
+        }
+
+        // 情况C：换行符前面已经是换行符（连续换行）
+        if (lastChild.Type == UbbNodeType.LineBreak)
+        {
+            // 避免多个连续换行，除了用于段落分隔的情况
+            return true;
+        }
+
+        // 情况D：检查是否在引用开始后的第一个内容前
+        if (container.Type == UbbNodeType.Quote)
+        {
+            // 查找引用内的第一个非换行内容
+            bool foundNonLineBreak = false;
+            foreach (var child in children)
+            {
+                if (child.Type != UbbNodeType.LineBreak)
+                {
+                    foundNonLineBreak = true;
+                    break;
+                }
+            }
+
+            // 如果还没有非换行内容，且现在要添加换行符 → 过滤
+            if (!foundNonLineBreak && children.Count > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsBlockContainer(TagNode node)
+    {
+        return node.Type == UbbNodeType.Quote ||
+               node.Type == UbbNodeType.Code ||
+               node.Type == UbbNodeType.List;
+    }
+
+    private bool IsBlockTag(UbbNode node)
+    {
+        // 检查节点是否是块级标签的开始或结束
+        return node.Type == UbbNodeType.Quote ||
+               node.Type == UbbNodeType.Code ||
+               node.Type == UbbNodeType.List ||
+               node.Type == UbbNodeType.Paragraph;
+    }
+
+
 
     private TagNode CreateTagNode(TagInfo tagInfo)
     {
@@ -602,6 +517,9 @@ public class Parser
         public Dictionary<string, string> Attributes { get; set; } = new();
     }
 }
+/// <summary>
+/// 解析入口点
+/// </summary>
 public class UbbParser
 {
     public static UbbDocument Parse(string ubbText)

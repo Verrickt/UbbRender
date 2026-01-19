@@ -11,8 +11,8 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Windows.UI;
 using Microsoft.UI.Xaml.Media.Imaging;
-using CC98.Controls.UbbRenderer.Common;
-namespace CC98.Controls
+using UbbRender.Common;
+namespace UbbRender.Render
 {
     public sealed partial class UbbTextBlock : Control
     {

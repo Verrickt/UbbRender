@@ -9,7 +9,7 @@
     mc:Ignorable="d"
     xmlns:md="using:CommunityToolkit.WinUI.UI.Controls"
     xmlns:lab="using:CommunityToolkit.WinUI.Controls"
-    xmlns:cc="using:CC98.Controls"
+    xmlns:cc="using:UbbRender.Render"
     xmlns:ic="using:FluentIcons.WinUI"
     Title="UBBDrawer">
     

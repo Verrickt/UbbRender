@@ -1,5 +1,4 @@
-﻿using CC98.Controls.UbbRenderer.Common;
-using ColorCode;
+﻿using ColorCode;
 using CommunityToolkit.WinUI;
 using CommunityToolkit.WinUI.Controls;
 using CommunityToolkit.WinUI.Controls.MarkdownTextBlockRns;
@@ -24,6 +23,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using UbbRender.Common;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
