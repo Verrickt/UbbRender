@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="UBBDrawer.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:UBBDrawer"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    xmlns:md="using:CommunityToolkit.WinUI.UI.Controls"
+    xmlns:lab="using:CommunityToolkit.WinUI.Controls"
+    xmlns:cc="using:CC98.Controls"
+    xmlns:ic="using:FluentIcons.WinUI"
+    Title="UBBDrawer">
+    
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"></RowDefinition>
+            <RowDefinition Height="*"></RowDefinition>
+            <RowDefinition Height="*"></RowDefinition>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="3*"></ColumnDefinition>
+            <ColumnDefinition Width="6*"></ColumnDefinition>
+        </Grid.ColumnDefinitions>
+        <TextBox x:Name="i" Grid.Row="0" Grid.Column="1" TextChanged="in_TextChanged"  AcceptsReturn="True" TextWrapping="Wrap"></TextBox>
+        <ScrollViewer Grid.Row="1" Grid.Column="1" Visibility="Visible">
+            <cc:UbbTextBlock x:Name="render" CodeBackground="{ThemeResource MarkdownBackgroudBrush}"></cc:UbbTextBlock>
+        </ScrollViewer>
+        <TreeView x:Name="view" Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" >
+            <TreeView.Resources>
+                <local:NodeTypeToSymbolConverter x:Key="SymbolConverter"></local:NodeTypeToSymbolConverter>
+            </TreeView.Resources>
+            <TreeView.ItemTemplate>
+                <DataTemplate x:DataType="local:UbbTreeItem">
+                    <TreeViewItem ItemsSource="{x:Bind Children, Mode=OneWay}" >
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <ic:SymbolIcon Symbol="{Binding NodeType, Converter={StaticResource SymbolConverter}}"  FontSize="12"/>
+                            <TextBlock Text="{Binding DisplayName}" />
+                        </StackPanel>
+                    </TreeViewItem>
+                </DataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+        <ScrollViewer Grid.Row="2"  Grid.Column="1" >
+            <TextBlock  x:Name="de" ></TextBlock>
+        </ScrollViewer>
+        <Button Grid.Row="2"  Content="复制AST" Grid.Column="0" Click="Button_Click"></Button>
+    </Grid>
+    
+</Window>

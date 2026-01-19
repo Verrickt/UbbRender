@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "UBBDrawer (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "UBBDrawer (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
