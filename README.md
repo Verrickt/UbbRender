@@ -15,7 +15,6 @@
 5现在，你已经完成所有调试准备。
 
 ## UBB语法定义(待补全)
-
 ### Token:
 LEFT_BRACKET:'[',
 RIGHT_BRACKET:']',
