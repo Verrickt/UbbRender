@@ -1,8 +1,10 @@
 ﻿
+using UBBParser.Scanner;
+
 namespace UbbParser.Test
 {
     [TestClass]
-    public class UBBScannerTests
+    public class UbbScannerTests
     {
         // 辅助方法：将扫描结果转为列表并移除最后的 EOF 方便对比
         private List<Token> GetTokens(string input)
