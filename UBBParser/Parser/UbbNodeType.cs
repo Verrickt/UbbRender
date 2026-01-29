@@ -31,5 +31,7 @@ public enum UbbNodeType
     Upload,         //上传
     Bilibili,       //B站视频
     NoUBB, //非UBB内容块
-    Markdown //markdown内容
+    Markdown, //markdown内容
+    NeedReply, //需要回复
+    ReplyView, //设置回复可见
 }

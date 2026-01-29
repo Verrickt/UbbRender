@@ -302,6 +302,8 @@ public class UBBParser
             "upload" =>UbbNodeType.Upload,
             "noubb" => UbbNodeType.NoUBB,
             "markdown"=>UbbNodeType.Markdown,
+            "replyview"=>UbbNodeType.ReplyView,
+            "needreply"=>UbbNodeType.NeedReply,
             _ => UbbNodeType.Text
         };
     }
