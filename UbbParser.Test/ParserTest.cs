@@ -118,6 +118,92 @@ public class UBBParserTests
         Assert.AreEqual(0, boldNode.Children.Count);
     }
 
+    [TestMethod]
+    public void Test_Emoji_AC()
+    {
+        string input = "[ac01]";
+        var doc = GetAst(input);
+
+        var emojiNode = doc.Root.Children[0] as TagNode;
+        Assert.AreEqual(0, emojiNode.Children.Count);
+        Assert.AreEqual(UbbNodeType.Emoji, emojiNode.Type);
+        Assert.AreEqual(emojiNode.Attributes.Count,1);
+        Assert.IsTrue(emojiNode.Attributes.ContainsKey("code"));
+        Assert.AreEqual(emojiNode.Attributes["code"], "ac01");
+    }
+
+    [TestMethod]
+    public void Test_Emoji_TB()
+    {
+        string input = "[tb01]";
+        var doc = GetAst(input);
+
+        var emojiNode = doc.Root.Children[0] as TagNode;
+        Assert.AreEqual(0, emojiNode.Children.Count);
+        Assert.AreEqual(UbbNodeType.Emoji, emojiNode.Type);
+        Assert.AreEqual(emojiNode.Attributes.Count, 1);
+        Assert.IsTrue(emojiNode.Attributes.ContainsKey("code"));
+        Assert.AreEqual(emojiNode.Attributes["code"], "tb01");
+    }
+
+    [TestMethod]
+    public void Test_Emoji_MS()
+    {
+        string input = "[ms01]";
+        var doc = GetAst(input);
+
+        var emojiNode = doc.Root.Children[0] as TagNode;
+        Assert.AreEqual(0, emojiNode.Children.Count);
+        Assert.AreEqual(UbbNodeType.Emoji, emojiNode.Type);
+        Assert.AreEqual(emojiNode.Attributes.Count, 1);
+        Assert.IsTrue(emojiNode.Attributes.ContainsKey("code"));
+        Assert.AreEqual(emojiNode.Attributes["code"], "ms01");
+    }
+
+    [TestMethod]
+    public void Test_Emoji_EM()
+    {
+        string input = "[em11]";
+        var doc = GetAst(input);
+
+        var emojiNode = doc.Root.Children[0] as TagNode;
+        Assert.AreEqual(0, emojiNode.Children.Count);
+        Assert.AreEqual(UbbNodeType.Emoji, emojiNode.Type);
+        Assert.AreEqual(emojiNode.Attributes.Count, 1);
+        Assert.IsTrue(emojiNode.Attributes.ContainsKey("code"));
+        Assert.AreEqual(emojiNode.Attributes["code"], "em11");
+    }
+
+    [TestMethod]
+    public void Test_Emoji_CC98()
+    {
+        string input = "[cc9801]";
+        var doc = GetAst(input);
+
+        var emojiNode = doc.Root.Children[0] as TagNode;
+        Assert.AreEqual(0, emojiNode.Children.Count);
+        Assert.AreEqual(UbbNodeType.Emoji, emojiNode.Type);
+        Assert.AreEqual(emojiNode.Attributes.Count, 1);
+        Assert.IsTrue(emojiNode.Attributes.ContainsKey("code"));
+        Assert.AreEqual(emojiNode.Attributes["code"], "cc9801");
+    }
+
+    [DataTestMethod]
+    [DataRow("a:001")]
+    [DataRow("c:001")]
+    [DataRow("f:001")]
+    public void Test_Emoji_MahjongTagHandler(string emojiCode)
+    {
+        string input = $"[{emojiCode}]";
+        var doc = GetAst(input);
+
+        var emojiNode = doc.Root.Children[0] as TagNode;
+        Assert.AreEqual(0, emojiNode.Children.Count);
+        Assert.AreEqual(UbbNodeType.Emoji, emojiNode.Type);
+        Assert.AreEqual(emojiNode.Attributes.Count, 1);
+        Assert.IsTrue(emojiNode.Attributes.ContainsKey("code"));
+        Assert.AreEqual(emojiNode.Attributes["code"], emojiCode);
+    }
 
 
     [TestMethod]

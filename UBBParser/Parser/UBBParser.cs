@@ -271,7 +271,8 @@ public class UBBParser
     {
         tagName = tagName.ToLower();
         // 处理 CC98 特有的表情前缀
-        if (tagName.StartsWith("ac") || tagName.StartsWith("em") || tagName.StartsWith("cc98"))
+        string[] emojiPrefix = ["cc98", "a:", "c:", "f:", "tb", "ms", "em","ac"];
+        if (emojiPrefix.Any(p=>tagName.StartsWith(p)))
             return UbbNodeType.Emoji;
 
         return tagName switch
