@@ -45,7 +45,7 @@ public class UBBParserTests
         var doc = GetAst(input);
 
         var uploadNode = doc.Root.Children[0] as TagNode;
-        Assert.AreEqual(UbbNodeType.Emoji, MapToNodeType("upload")); // 假设在 Map 中定义
+        Assert.AreEqual(UbbNodeType.Upload, uploadNode.Type); // 假设在 Map 中定义
         Assert.AreEqual("jpg", uploadNode.GetAttribute("default"));
         Assert.AreEqual("1", uploadNode.GetAttribute("1"));
     }
@@ -158,14 +158,143 @@ public class UBBParserTests
         Assert.IsInstanceOfType(children[2], typeof(TextNode));
         Assert.AreEqual("正常", ((TextNode)children[2]).Content);
     }
+    [TestMethod]
+    public void Test_UnknownTag_ShouldFallbackToText()
+    {
+        // 输入包含一个不存在的标签 [ghost]
+        string input = "Hello [ghost]World[/ghost]";
+        var doc = GetAst(input);
 
+        // 预期结构：Root -> TextNode("Hello "), TextNode("[ghost"), TextNode("World"), TextNode("[/ghost")
+        // 注意：由于我们将未知标签识别为 Text，它们会被切分成多个 TextNode 或保持独立
+        var textNodes = doc.Root.Children.OfType<TextNode>().ToList();
+
+        Assert.IsTrue(textNodes.Any(n => n.Content.Contains("[ghost")));
+        Assert.IsFalse(doc.Root.Children.Any(n => n is TagNode));
+    }
+
+    [TestMethod]
+    public void Test_UnclosedTag_AtEndOfDocument()
+    {
+        // 输入标签没有闭合括号 ']'
+        string input = "This is [b bold text";
+        var doc = GetAst(input);
+
+        // 预期：[b 应该被识别为 TextNode
+        var textNode = doc.Root.Children.Last() as TextNode;
+        Assert.IsNotNull(textNode);
+        Assert.IsTrue(textNode.Content.Contains("[b"));
+    }
+
+    [TestMethod]
+    public void Test_MalformedNestedBrackets()
+    {
+        // 标签内部非法嵌套了另一个左括号 [url=[b]]
+        string input = "[url=[b]]Link[/url]";
+        var doc = GetAst(input);
+
+        // 按照我们的逻辑，第一个 [url=[ 扫描到第二个 [ 时发现错误，回退为文本
+        // 最终会解析成文本 + [b]]...
+        Assert.IsInstanceOfType(doc.Root.Children[0], typeof(TextNode));
+        Assert.IsTrue(((TextNode)doc.Root.Children[0]).Content.StartsWith("[url="));
+    }
+
+    [TestMethod]
+    public void Test_LoneClosingTag()
+    {
+        // 只有闭合标签，没有开始标签
+        string input = "Just a closing tag [/b]";
+        var doc = GetAst(input);
+
+        // ParseContent 会因为找不到匹配的 closingTag 而跳过处理，
+        // ParseElement 会将其中的 [ / b ] 分别或合并识别为 Text
+        var nodes = doc.Root.Children;
+        Assert.IsFalse(nodes.Any(n => n is TagNode));
+    }
+
+    [TestMethod]
+    public void Test_AttributeWithoutValue_Fallback()
+    {
+        // 属性格式错误，如 [color=]
+        string input = "[color=]Text[/color]";
+        var doc = GetAst(input);
+
+        // 取决于实现：如果 ParseTagHeader 允许空属性，它是一个 TagNode；
+        // 如果不允许且回退，它是一个 TextNode。
+        // 根据我们的逻辑，它会寻找 AttrValue，找不到则 rawAttributesText 只包含 "="
+        var firstNode = doc.Root.Children[0];
+        Assert.AreEqual(UbbNodeType.Color, firstNode.Type);
+    }
+
+    [TestMethod]
+    public void Test_CodeTag_ContentIsLiteral()
+    {
+        // [code] 内部的 [b] 不应该被解析成标签，而是纯文本
+        string input = "[code]var x = [b]test[/b];[/code]";
+        var doc = GetAst(input);
+
+        var codeNode = doc.Root.Children[0] as TagNode;
+        Assert.AreEqual(UbbNodeType.Code, codeNode.Type);
+
+        // 子节点应该只有一个 TextNode
+        Assert.AreEqual(1, codeNode.Children.Count);
+        var content = (codeNode.Children[0] as TextNode).Content;
+        Assert.AreEqual("var x = [b]test[/b];", content);
+    }
+
+    [TestMethod]
+    public void Test_NoUBBTag_WithMismatchedBrackets()
+    {
+        // [nobb] 用于展示 UBB 教程，内部包含各种乱码和括号
+        string input = "[noubb][[[/noubb]";
+        var doc = GetAst(input);
+
+        var nobbNode = doc.Root.Children[0] as TagNode;
+        Assert.AreEqual(UbbNodeType.NoUBB, nobbNode.Type);
+        Assert.AreEqual("[[", (nobbNode.Children[0] as TextNode).Content);
+    }
+
+    [TestMethod]
+    public void Test_CodeTag_Unclosed_ConsumesUntilEOF()
+    {
+        // 如果没有闭合标签，内容应该一直到文档末尾
+        string input = "[code]incomplete content...";
+        var doc = GetAst(input);
+
+        var codeNode = doc.Root.Children[0] as TagNode;
+        Assert.AreEqual("incomplete content...", (codeNode.Children[0] as TextNode).Content);
+    }
+
+    [TestMethod]
+    public void Test_NestedNoBB_Balanced()
+    {
+        // 输入：[noubb][noubb]Test[/noubb][/noubb]
+        // 外部 noubb 的内容应该是 "[noubb]Test[/noubb]"
+        string input = "[noubb][noubb]Test[/noubb][/noubb]";
+        var doc = GetAst(input);
+
+        var outerNode = doc.Root.Children[0] as TagNode;
+        Assert.AreEqual(UbbNodeType.NoUBB, outerNode.Type);
+
+        var content = (outerNode.Children[0] as TextNode).Content;
+        Assert.AreEqual("[noubb]Test[/noubb]", content);
+    }
+
+    [TestMethod]
+    public void Test_Noubb_With_Extra_Closing_Tag()
+    {
+        // 输入：[noubb]Test[/noubb][/noubb]
+        // 这是你提到的情况。第一个 [/noubb] 会使 depth 归零，解析结束。
+        // 剩下的 [/noubb] 应该作为后续的普通 Text 处理。
+        string input = "[noubb]Test[/noubb][/noubb]";
+        var doc = GetAst(input);
+
+        Assert.AreEqual(2, doc.Root.Children.Count);
+        Assert.IsInstanceOfType(doc.Root.Children[0], typeof(TagNode)); // noubb 节点
+        Assert.IsInstanceOfType(doc.Root.Children[1], typeof(TextNode)); // 剩下的 [/noubb]
+        Assert.AreEqual("[/noubb]", (doc.Root.Children[1] as TextNode).Content);
+    }
     #endregion
 
-    // 辅助映射逻辑验证（如果 MapToNodeType 是私有的，可通过反射或改为 internal）
-    private UbbNodeType MapToNodeType(string tag)
-    {
-        // 同 Parser 内部逻辑
-        if (tag == "upload") return UbbNodeType.Emoji;
-        return UbbNodeType.Text;
-    }
+
 }

@@ -1,4 +1,4 @@
-﻿namespace UBBParser.Parser;
+namespace UBBParser.Parser;
 
 public enum UbbNodeType
 {
@@ -28,5 +28,7 @@ public enum UbbNodeType
     Divider,        // 分隔线 [hr]
     Emoji,          // 表情 [em]
     Latex,           // 公式
-    Bilibili       //B站视频
+    Upload,         //上传
+    Bilibili,       //B站视频
+    NoUBB //非UBB内容块
 }
