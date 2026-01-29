@@ -126,6 +126,7 @@ public class UBBParser
             return new TextNode("[" + name);
         }
 
+
         var attributes = new Dictionary<string, string>();
         int attrCount = 0;
 
@@ -169,7 +170,10 @@ public class UBBParser
                 return FallbackToText(startIndex);
             }
         }
-
+        if (type == UbbNodeType.Emoji)
+        {
+            attributes["code"] = name;
+        }
         // 4. 检查是否以 ']' 正常结尾
         if (Peek().Type == TokenType.RightBracket)
         {
