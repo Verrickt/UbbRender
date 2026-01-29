@@ -30,5 +30,6 @@ public enum UbbNodeType
     Latex,           // 公式
     Upload,         //上传
     Bilibili,       //B站视频
-    NoUBB //非UBB内容块
+    NoUBB, //非UBB内容块
+    Markdown //markdown内容
 }

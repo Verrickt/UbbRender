@@ -59,7 +59,7 @@ public class UBBParser
                 if (node is TagNode tag && !IsSelfClosing(tag.Type))
                 {
                     // --- 关键修改点 ---
-                    if (tag.Type == UbbNodeType.Code || tag.Type == UbbNodeType.NoUBB)
+                    if (tag.Type == UbbNodeType.Code || tag.Type == UbbNodeType.NoUBB||tag.Type==UbbNodeType.Markdown)
                     {
                         // 进入“逐字模式”，直接寻找闭合标签
                         ParseVerbatimContent(tag);
@@ -183,50 +183,49 @@ public class UBBParser
     private void ParseVerbatimContent(TagNode parent)
     {
         var sb = new System.Text.StringBuilder();
-        string tagName = parent.Type == UbbNodeType.Code ? "code" : "noubb";
-
-        // 初始深度为 1（因为已经进入了开始标签）
-        int depth = 1;
+        // 确定我们要找的闭合标签名（统一转小写处理）
+        UbbNodeType targetType = GetVerbatimTagType(parent.Type);
 
         while (_index < _tokens.Count)
         {
-            // 探测：是否遇到了闭合标签 [/tagName]
-            if (IsSpecificTag(targetIsClosing: true, tagName))
+            // 探测：当前位置是否是闭合标签 [/targetName]
+            if (IsClosingTag(targetType))
             {
-                depth--;
-                if (depth == 0)
+                // 1. 将之前积累的所有文本存入 TextNode
+                if (sb.Length > 0)
                 {
-                    // 真正的结束了
-                    if (sb.Length > 0) parent.AddChild(new TextNode(sb.ToString()));
-
-                    // 消费整个 [/tag]
-                    Consume(); Consume(); Consume();
-                    if (Peek().Type == TokenType.RightBracket) Consume();
-                    return;
+                    parent.AddChild(new TextNode(sb.ToString()));
                 }
 
-                // 如果 depth > 0，说明这个 [/tag] 只是内容的一部分，记录它
-                sb.Append(ConsumeVerbatimTagText());
-                continue;
+                // 2. 消费掉整个闭合标签 [/xxx]
+                Consume(); // [
+                Consume(); // /
+                Consume(); // TagName
+                if (Peek().Type == TokenType.RightBracket) Consume(); // ]
+
+                return; // 结束逐字解析，返回父级
             }
 
-            // 探测：是否遇到了新的开始标签 [tagName]
-            if (IsSpecificTag(targetIsClosing: false, tagName))
-            {
-                depth++;
-                // 虽然是开始标签，但在 noubb 内部它只是文本
-                sb.Append(ConsumeVerbatimTagText());
-                continue;
-            }
-
-            // 普通内容，直接消费
+            // 没遇到闭合标签，则消费当前 Token 并记录其原始值
             sb.Append(Consume().Value);
         }
 
-        // EOF 容错
-        if (sb.Length > 0) parent.AddChild(new TextNode(sb.ToString()));
+        // 容错：如果直到 EOF 都没找到闭合标签
+        if (sb.Length > 0)
+        {
+            parent.AddChild(new TextNode(sb.ToString()));
+        }
     }
 
+    // 辅助方法：精准探测闭合标签
+    private bool IsClosingTag(UbbNodeType tagType)
+    {
+        return Peek().Type == TokenType.LeftBracket &&
+               PeekNext()?.Type == TokenType.Slash &&
+               PeekOffset(2)?.Type == TokenType.TagName &&
+               MapToNodeType(PeekOffset(2).Value) == tagType &&
+               PeekOffset(3)?.Type == TokenType.RightBracket;
+    }
 
     private UbbNode ParseLatex()
     {
@@ -254,6 +253,16 @@ public class UBBParser
         };
     }
 
+    private UbbNodeType GetVerbatimTagType(UbbNodeType src)
+    {
+        return src switch
+        {
+            UbbNodeType.Code => UbbNodeType.Code,
+            UbbNodeType.NoUBB => UbbNodeType.NoUBB,
+            UbbNodeType.Markdown => UbbNodeType.Markdown,
+            _ => throw new InvalidOperationException()
+        };
+    }
     private UbbNodeType MapToNodeType(string tagName)
     {
         tagName = tagName.ToLower();
@@ -287,6 +296,7 @@ public class UBBParser
             "bili" => UbbNodeType.Bilibili,
             "upload" =>UbbNodeType.Upload,
             "noubb" => UbbNodeType.NoUBB,
+            "markdown"=>UbbNodeType.Markdown,
             _ => UbbNodeType.Text
         };
     }
